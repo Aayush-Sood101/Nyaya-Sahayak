@@ -49,7 +49,7 @@ USER QUERY: ${query}
 LEGAL CONTEXT:
 ${context}
 
-Please provide a response in the following format:
+Please provide your response in the following format:
 1. A brief introduction to the legal issue
 2. A structured action plan with numbered steps (at least 3, maximum 5 steps)
 3. Citations to relevant laws or documents
@@ -121,43 +121,100 @@ const parseResponseIntoStructure = (rawResponse) => {
       disclaimer = "This is not legal advice. Please consult a qualified lawyer for specific legal counsel.";
     }
 
-    // Extract action plan steps - try different patterns
-    const actionPlanSection = rawResponse.match(/action plan|steps to take:?(?:\n|)((?:.|\n)*?)(?:\n\n\d|disclaimer|$)/i);
+    // Try to extract numbered action items with titles in brackets
+    // Pattern: 1. [Title]: Description or 1. Title: Description
+    console.log('Looking for action plan items...');
+    
+    // First try to find an "Action Plan" section
+    const actionPlanSection = rawResponse.match(/(?:action plan|steps to take|steps|plan):?(?:\n|)((?:.|\n)*?)(?:\n\n\d|relevant laws|sources|disclaimer|$)/i);
     
     if (actionPlanSection && actionPlanSection[1]) {
       console.log('Found action plan section');
-      const actionSteps = actionPlanSection[1].match(/\d+\.\s+(?:\[([^\]]+)\]:\s+|)(.+?)(?=\n\d+\.|$)/gs);
       
-      if (actionSteps) {
-        console.log(`Found ${actionSteps.length} action steps`);
-        actionSteps.forEach((step, index) => {
-          const stepMatch = step.match(/\d+\.\s+(?:\[([^\]]+)\]:\s+|)(.+)/s);
-          if (stepMatch) {
-            const title = stepMatch[1] || `Step ${index + 1}`;
-            const description = stepMatch[2].trim();
-            actionPlan.push({
-              step: index + 1,
-              title: title,
-              description: description,
-              priority: "medium" // Default priority
-            });
-          }
+      // Try to find items with format: 1. [Title]: Description
+      const bracketPattern = /\d+\.\s+\*?\*?\[([^\]]+)\]\*?\*?:?\s+(.+?)(?=\n\s*\d+\.|\n\n|$)/gs;
+      const bracketMatches = [...actionPlanSection[1].matchAll(bracketPattern)];
+      
+      if (bracketMatches && bracketMatches.length > 0) {
+        console.log(`Found ${bracketMatches.length} bracketed action steps`);
+        bracketMatches.forEach((match, index) => {
+          actionPlan.push({
+            step: index + 1,
+            title: match[1].trim(),
+            description: match[2].trim(),
+            priority: index === 0 ? "high" : "medium"
+          });
         });
       } else {
-        // Fallback - try to find any numbered list
-        console.log('No formatted action steps found, looking for any numbered list');
-        const numList = actionPlanSection[1].match(/\d+\.\s+(.+?)(?=\n\d+\.|$)/gs);
-        if (numList) {
-          numList.forEach((item, index) => {
-            const content = item.replace(/^\d+\.\s+/, '').trim();
+        // Try for format: 1. **Title**: Description or 1. Title: Description
+        const colonPattern = /\d+\.\s+\*?\*?([^:]+):?\*?\*?\s+(.+?)(?=\n\s*\d+\.|\n\n|$)/gs;
+        const colonMatches = [...actionPlanSection[1].matchAll(colonPattern)];
+        
+        if (colonMatches && colonMatches.length > 0) {
+          console.log(`Found ${colonMatches.length} colon-separated action steps`);
+          colonMatches.forEach((match, index) => {
+            actionPlan.push({
+              step: index + 1,
+              title: match[1].trim().replace(/\*\*/g, ''),
+              description: match[2].trim(),
+              priority: index === 0 ? "high" : "medium"
+            });
+          });
+        } else {
+          // Last resort: just use numbered items
+          const numberedPattern = /\d+\.\s+(.+?)(?=\n\s*\d+\.|\n\n|$)/gs;
+          const numberedMatches = [...actionPlanSection[1].matchAll(numberedPattern)];
+          
+          if (numberedMatches && numberedMatches.length > 0) {
+            console.log(`Found ${numberedMatches.length} numbered action steps`);
+            numberedMatches.forEach((match, index) => {
+              // Split by first colon if exists
+              const parts = match[1].split(':');
+              if (parts.length > 1) {
+                actionPlan.push({
+                  step: index + 1,
+                  title: parts[0].trim().replace(/\*\*/g, ''),
+                  description: parts.slice(1).join(':').trim(),
+                  priority: index === 0 ? "high" : "medium"
+                });
+              } else {
+                actionPlan.push({
+                  step: index + 1,
+                  title: `Step ${index + 1}`,
+                  description: match[1].trim(),
+                  priority: index === 0 ? "high" : "medium"
+                });
+              }
+            });
+          }
+        }
+      }
+    } else {
+      // Try to find any numbered list in the text
+      console.log('No action plan section found, looking for any numbered list');
+      const numberedItems = rawResponse.match(/\d+\.\s+(.+?)(?=\n\s*\d+\.|\n\n|$)/gs);
+      
+      if (numberedItems && numberedItems.length > 0) {
+        numberedItems.forEach((item, index) => {
+          const content = item.replace(/^\d+\.\s+/, '').trim();
+          // Check if it has a colon separator
+          const parts = content.split(':');
+          if (parts.length > 1) {
+            actionPlan.push({
+              step: index + 1,
+              title: parts[0].trim().replace(/\*\*/g, ''),
+              description: parts.slice(1).join(':').trim(),
+              priority: index === 0 ? "high" : "medium"
+            });
+          } else {
             actionPlan.push({
               step: index + 1,
               title: `Step ${index + 1}`,
               description: content,
-              priority: "medium"
+              priority: index === 0 ? "high" : "medium"
             });
-          });
-        }
+          }
+        });
       }
     }
 
@@ -186,13 +243,15 @@ const parseResponseIntoStructure = (rawResponse) => {
       ];
     }
 
-    // Extract sources
-    const sourcesMatch = rawResponse.match(/sources|references:?(?:\n|)((?:.|\n)*?)(?=\n\n|disclaimer|$)/i);
-    if (sourcesMatch && sourcesMatch[1]) {
+    // Extract sources - look for relevant laws section or sources section
+    const relevantLawsMatch = rawResponse.match(/(?:relevant laws|sources|references):?(?:\n|)((?:.|\n)*?)(?=\n\n|disclaimer|$)/i);
+    if (relevantLawsMatch && relevantLawsMatch[1]) {
       console.log('Found sources section');
-      const sourceItems = sourcesMatch[1].match(/(?:[-•*]\s+|(?:\d+\.\s+))(.+?)(?=\n[-•*]|\n\d+\.|$)/gs);
       
-      if (sourceItems) {
+      // Try to match bullet points, numbered items, or hyphenated items
+      const sourceItems = relevantLawsMatch[1].match(/(?:[-•*]\s+|(?:\d+\.\s+))(.+?)(?=\n[-•*]|\n\d+\.|$)/gs);
+      
+      if (sourceItems && sourceItems.length > 0) {
         sourceItems.forEach(item => {
           const content = item.replace(/^[-•*\d.]\s+/, '').trim();
           
@@ -204,6 +263,17 @@ const parseResponseIntoStructure = (rawResponse) => {
             sourceName: sourceUrlMatch[1] || content,
             sourceUrl: sourceUrlMatch[2] || sourceUrlMatch[3] || "",
             relevance: 0.9 // Default relevance
+          });
+        });
+      } else {
+        // If no bullet points, just split by newlines
+        const lines = relevantLawsMatch[1].split('\n').filter(line => line.trim().length > 0);
+        lines.forEach(line => {
+          sources.push({
+            sourceType: determineSourceType(line),
+            sourceName: line.trim(),
+            sourceUrl: "",
+            relevance: 0.9
           });
         });
       }
