@@ -1,61 +1,81 @@
 "use client";
 
 import { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Loader2 } from 'lucide-react'; // Icon for loading spinner
 
 export default function QueryInput({ onSubmit, isLoading }) {
   const [query, setQuery] = useState('');
-  const [charCount, setCharCount] = useState(0);
   const MAX_CHARS = 500;
-  
+
   const handleChange = (e) => {
     const text = e.target.value;
     if (text.length <= MAX_CHARS) {
       setQuery(text);
-      setCharCount(text.length);
     }
   };
-  
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (query.trim() && !isLoading) {
       onSubmit(query);
       setQuery('');
-      setCharCount(0);
     }
   };
-  
+
+  const charCount = query.length;
+
   return (
-    <div className="w-full">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="relative">
-          <textarea
-            className="w-full h-32 p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            placeholder="Describe your legal issue or question..."
-            value={query}
-            onChange={handleChange}
-            disabled={isLoading}
-          />
-          <div className="absolute bottom-2 right-2 text-xs text-gray-500">
-            {charCount}/{MAX_CHARS}
+    // Card: Hardcoded black background, white text, and dark border
+    <Card className="w-full max-w-2xl mx-auto shadow-lg bg-black text-white border-zinc-800">
+      <CardHeader>
+        <CardTitle className="text-white">Describe Your Case</CardTitle>
+        <CardDescription className="text-zinc-400">
+          Provide as much detail as possible for the most relevant legal guidance.
+        </CardDescription>
+      </CardHeader>
+      <form onSubmit={handleSubmit}>
+        <CardContent>
+          <div className="relative">
+            {/* Textarea: Styled for the dark theme */}
+            <Textarea
+              className="w-full h-36 resize-none bg-zinc-900 border-zinc-700 placeholder:text-zinc-500 text-base p-4"
+              placeholder="Explain your legal situation here. For example: 'My landlord is trying to evict me in Delhi without a proper notice...'"
+              value={query}
+              onChange={handleChange}
+              disabled={isLoading}
+              maxLength={MAX_CHARS}
+            />
+            {/* Character counter */}
+            <div className="absolute bottom-3 right-3 text-xs text-zinc-500">
+              {charCount}/{MAX_CHARS}
+            </div>
           </div>
-        </div>
-        
-        <div className="flex justify-between items-center">
-          <p className="text-xs text-gray-500">
-            Be specific about your legal situation for more accurate advice
+        </CardContent>
+        <CardFooter className="flex justify-between items-center">
+          <p className="text-xs text-zinc-500">
+            Your query will be handled confidentially.
           </p>
           
-          <button
+          {/* Button: Inverted style with a loading indicator */}
+          <Button
             type="submit"
-            className={`px-6 py-2 bg-blue-600 text-white rounded-md ${
-              isLoading || !query.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
-            }`}
+            className="bg-white text-black hover:bg-zinc-200 min-w-[160px]"
             disabled={isLoading || !query.trim()}
           >
-            {isLoading ? 'Processing...' : 'Get Legal Advice'}
-          </button>
-        </div>
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              'Get Legal Advice'
+            )}
+          </Button>
+        </CardFooter>
       </form>
-    </div>
+    </Card>
   );
 }

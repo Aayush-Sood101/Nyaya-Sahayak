@@ -4,12 +4,16 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Plus, Search, Home, History, Settings } from 'lucide-react';
 
 export default function Sidebar({ conversations, onNewChat, onSelectChat, activeChatId }) {
   const pathname = usePathname();
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Filter conversations based on search term
   const filteredConversations = conversations.filter(conv => 
     conv.title?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -17,177 +21,109 @@ export default function Sidebar({ conversations, onNewChat, onSelectChat, active
   const formatDate = (dateString) => {
     try {
       return format(new Date(dateString), 'MMM d, yyyy');
-    } catch (error) {
+    } catch {
       return '';
     }
   };
   
   return (
-    <div className="w-64 bg-gray-50 border-r border-gray-200 h-screen flex flex-col">
+    <aside className="w-72 bg-black border-r border-zinc-800 h-screen flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-gray-800">Nyaya Sahayak</h1>
-        <p className="text-sm text-gray-600">Your Legal Assistant</p>
+      <div className="p-4 border-b border-zinc-800">
+        <h1 className="text-xl font-bold text-white">Nyaya Sahayak</h1>
+        <p className="text-sm text-zinc-400">Your Legal Assistant</p>
       </div>
       
       {/* New Chat Button */}
       <div className="p-4">
-        <button
+        <Button
           onClick={onNewChat}
-          className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          className="w-full bg-white text-black hover:bg-zinc-200"
         >
-          <svg
-            className="w-4 h-4 mr-2"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-            />
-          </svg>
+          <Plus className="w-4 h-4 mr-2" />
           New Legal Query
-        </button>
+        </Button>
       </div>
       
       {/* Search Box */}
-      <div className="px-4 py-2">
+      <div className="px-4 pb-2">
         <div className="relative">
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+          <Input
             type="text"
             placeholder="Search conversations..."
-            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+            className="w-full pl-9 bg-zinc-900 border-zinc-700 placeholder:text-zinc-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <svg
-            className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
         </div>
       </div>
       
       {/* Conversation List */}
-      <div className="flex-1 overflow-y-auto">
-        {filteredConversations && filteredConversations.length > 0 ? (
-          <div className="p-2">
-            {filteredConversations.map((conversation) => (
+      <ScrollArea className="flex-1">
+        <div className="p-2">
+          {filteredConversations.length > 0 ? (
+            filteredConversations.map((conv) => (
               <div
-                key={conversation._id || conversation.id}
-                className={`p-2 rounded-md cursor-pointer mb-1 ${
-                  activeChatId === (conversation._id || conversation.id)
-                    ? 'bg-blue-100 text-blue-800'
-                    : 'hover:bg-gray-200'
+                key={conv._id}
+                className={`px-3 py-2 rounded-md cursor-pointer text-sm text-zinc-300 transition-colors ${
+                  activeChatId === conv._id
+                    ? 'bg-zinc-800 text-white'
+                    : 'hover:bg-zinc-900'
                 }`}
-                onClick={() => onSelectChat(conversation._id || conversation.id)}
+                onClick={() => onSelectChat(conv._id)}
               >
-                <div className="truncate font-medium">{conversation.title}</div>
-                <div className="text-xs text-gray-500">
-                  {formatDate(conversation.updatedAt || conversation.createdAt)}
+                <div className="truncate font-medium">{conv.title}</div>
+                <div className="text-xs text-zinc-500">
+                  {formatDate(conv.updatedAt)}
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="p-4 text-center text-gray-500">
-            {searchTerm ? 'No conversations found' : 'No conversations yet'}
-          </div>
-        )}
-      </div>
+            ))
+          ) : (
+            <div className="p-4 text-center text-sm text-zinc-500">
+              {searchTerm ? 'No matches found' : 'No conversations yet'}
+            </div>
+          )}
+        </div>
+      </ScrollArea>
       
+      <Separator className="bg-zinc-800" />
+
       {/* Navigation Footer */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-2">
         <nav className="flex flex-col space-y-1">
-          <Link
-            href="/"
-            className={`px-3 py-2 rounded-md text-sm flex items-center ${
-              pathname === '/' ? 'bg-gray-200' : 'hover:bg-gray-200'
-            }`}
-          >
-            <svg
-              className="w-4 h-4 mr-2 text-gray-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
+          <Link href="/" passHref>
+            <Button
+              variant="ghost"
+              className={`w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800 ${
+                pathname === '/' && 'bg-zinc-800 text-white'
+              }`}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-              />
-            </svg>
-            Home
+              <Home className="w-4 h-4 mr-2" /> Home
+            </Button>
           </Link>
-          
-          <Link
-            href="/history"
-            className={`px-3 py-2 rounded-md text-sm flex items-center ${
-              pathname === '/history' ? 'bg-gray-200' : 'hover:bg-gray-200'
-            }`}
-          >
-            <svg
-              className="w-4 h-4 mr-2 text-gray-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
+          <Link href="/history" passHref>
+            <Button
+              variant="ghost"
+              className={`w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800 ${
+                pathname === '/history' && 'bg-zinc-800 text-white'
+              }`}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            History
+              <History className="w-4 h-4 mr-2" /> History
+            </Button>
           </Link>
-          
-          <Link
-            href="/settings"
-            className={`px-3 py-2 rounded-md text-sm flex items-center ${
-              pathname === '/settings' ? 'bg-gray-200' : 'hover:bg-gray-200'
-            }`}
-          >
-            <svg
-              className="w-4 h-4 mr-2 text-gray-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
+          <Link href="/settings" passHref>
+            <Button
+              variant="ghost"
+              className={`w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800 ${
+                pathname === '/settings' && 'bg-zinc-800 text-white'
+              }`}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-            Settings
+              <Settings className="w-4 h-4 mr-2" /> Settings
+            </Button>
           </Link>
         </nav>
       </div>
-    </div>
+    </aside>
   );
 }
