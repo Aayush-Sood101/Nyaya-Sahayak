@@ -68,7 +68,7 @@ export default function ChatInterface({ messages, onSendMessage, isLoading }) {
                   </div>
                   <div className="ml-3 bg-white border border-gray-200 p-3 rounded-lg max-w-[80%]">
                     <div className="text-gray-800 whitespace-pre-wrap">
-                      {msg.response.text}
+                      {msg.response.text || "Sorry, I couldn't generate a proper response. Please try again."}
                     </div>
                     
                     {/* Action Plan */}

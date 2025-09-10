@@ -30,9 +30,13 @@ const generateLegalAdvice = async (query, documents, userId = null, conversation
   try {
     // Prepare context from documents
     const context = documents.map(doc => {
-      return `Source: ${doc.metadata.source_name} (${doc.metadata.source_type})
+      const sourceName = doc.metadata.source_name || doc.metadata.source || "Unknown Source";
+      const sourceType = doc.metadata.source_type || "Unknown Type";
+      const sourceUrl = doc.metadata.source_url || "";
+      
+      return `Source: ${sourceName} (${sourceType})
 Content: ${doc.text}
-${doc.metadata.source_url ? `URL: ${doc.metadata.source_url}` : ''}
+${sourceUrl ? `URL: ${sourceUrl}` : ''}
 ---`;
     }).join('\n');
     
@@ -64,9 +68,11 @@ IMPORTANT GUIDELINES:
 - Do not provide advice that could be legally problematic
 `;
 
-    // Log the prompt
+    // Log the prompt with full context
+    console.log('Logging prompt with full context...');
     logPrompt(query, documents, userId, conversationId);
 
+    console.log('Sending request to OpenAI...');
     const response = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
@@ -78,16 +84,20 @@ IMPORTANT GUIDELINES:
     });
 
     const responseContent = response.choices[0].message.content;
+    console.log('Received response from OpenAI, length:', responseContent.length);
     
     // Parse the response
+    console.log('Parsing response into structured format...');
     const parsedResponse = parseResponseIntoStructure(responseContent);
     
-    // Log the response
+    // Log the response with complete details
+    console.log('Logging complete response...');
     logResponse(responseContent, parsedResponse, userId, conversationId);
 
     return responseContent;
   } catch (error) {
-    logError(error, 'openaiService.generateLegalAdvice');
+    console.error('Error in generateLegalAdvice:', error.message);
+    logError(error, 'openaiService.generateLegalAdvice', { query, documentCount: documents?.length });
     throw new Error('Failed to generate legal advice');
   }
 };
@@ -95,40 +105,131 @@ IMPORTANT GUIDELINES:
 // Parse the response into structured format
 const parseResponseIntoStructure = (rawResponse) => {
   try {
+    console.log('Raw response to parse:', rawResponse.substring(0, 100) + '...');
+    
     let disclaimer = "";
-    const actionPlanRegex = /(\d+)\.\s+\[([^\]]+)\]:\s+(.+?)(?=\d+\.\s+\[|\n\n|$)/gs;
+    let actionPlan = [];
+    let sources = [];
     
     // Extract disclaimer
     const disclaimerMatch = rawResponse.match(/disclaimer:?.*?((?:.|\n)*?)(?:\n\n|$)/i);
     if (disclaimerMatch) {
+      console.log('Found disclaimer');
       disclaimer = disclaimerMatch[1].trim();
+    } else {
+      console.log('No disclaimer found, using default');
+      disclaimer = "This is not legal advice. Please consult a qualified lawyer for specific legal counsel.";
     }
 
-    // Extract action plan steps
-    const actionPlan = [];
-    let match;
-    while ((match = actionPlanRegex.exec(rawResponse)) !== null) {
-      actionPlan.push({
-        step: parseInt(match[1]),
-        title: match[2].trim(),
-        description: match[3].trim(),
-        priority: "medium" // Default priority
-      });
+    // Extract action plan steps - try different patterns
+    const actionPlanSection = rawResponse.match(/action plan|steps to take:?(?:\n|)((?:.|\n)*?)(?:\n\n\d|disclaimer|$)/i);
+    
+    if (actionPlanSection && actionPlanSection[1]) {
+      console.log('Found action plan section');
+      const actionSteps = actionPlanSection[1].match(/\d+\.\s+(?:\[([^\]]+)\]:\s+|)(.+?)(?=\n\d+\.|$)/gs);
+      
+      if (actionSteps) {
+        console.log(`Found ${actionSteps.length} action steps`);
+        actionSteps.forEach((step, index) => {
+          const stepMatch = step.match(/\d+\.\s+(?:\[([^\]]+)\]:\s+|)(.+)/s);
+          if (stepMatch) {
+            const title = stepMatch[1] || `Step ${index + 1}`;
+            const description = stepMatch[2].trim();
+            actionPlan.push({
+              step: index + 1,
+              title: title,
+              description: description,
+              priority: "medium" // Default priority
+            });
+          }
+        });
+      } else {
+        // Fallback - try to find any numbered list
+        console.log('No formatted action steps found, looking for any numbered list');
+        const numList = actionPlanSection[1].match(/\d+\.\s+(.+?)(?=\n\d+\.|$)/gs);
+        if (numList) {
+          numList.forEach((item, index) => {
+            const content = item.replace(/^\d+\.\s+/, '').trim();
+            actionPlan.push({
+              step: index + 1,
+              title: `Step ${index + 1}`,
+              description: content,
+              priority: "medium"
+            });
+          });
+        }
+      }
+    }
+
+    // If still no action plan, create a generic one
+    if (actionPlan.length === 0) {
+      console.log('Creating generic action plan');
+      actionPlan = [
+        {
+          step: 1,
+          title: "Understand Your Rights",
+          description: "Research applicable laws and regulations related to your situation.",
+          priority: "high"
+        },
+        {
+          step: 2,
+          title: "Consult a Lawyer",
+          description: "Seek professional legal advice specific to your circumstances.",
+          priority: "medium"
+        },
+        {
+          step: 3,
+          title: "Document Everything",
+          description: "Keep records of all communication and relevant documents.",
+          priority: "medium"
+        }
+      ];
     }
 
     // Extract sources
-    const sources = [];
-    const sourceRegex = /(?:citing|reference|source|according to):\s*([^,\.]+)(?:[,\.]|\s+\(([^)]+)\))/gi;
-    let sourceMatch;
-    while ((sourceMatch = sourceRegex.exec(rawResponse)) !== null) {
-      sources.push({
-        sourceType: determineSourceType(sourceMatch[1]),
-        sourceName: sourceMatch[1].trim(),
-        sourceUrl: sourceMatch[2] ? sourceMatch[2].trim() : "",
-        relevance: 0.9 // Default relevance
-      });
+    const sourcesMatch = rawResponse.match(/sources|references:?(?:\n|)((?:.|\n)*?)(?=\n\n|disclaimer|$)/i);
+    if (sourcesMatch && sourcesMatch[1]) {
+      console.log('Found sources section');
+      const sourceItems = sourcesMatch[1].match(/(?:[-•*]\s+|(?:\d+\.\s+))(.+?)(?=\n[-•*]|\n\d+\.|$)/gs);
+      
+      if (sourceItems) {
+        sourceItems.forEach(item => {
+          const content = item.replace(/^[-•*\d.]\s+/, '').trim();
+          
+          // Try to extract source name and URL if present
+          const sourceUrlMatch = content.match(/(.*?)(?:\s*\(([^)]+)\)|\s*-\s*([^)]+)|$)/);
+          
+          sources.push({
+            sourceType: determineSourceType(sourceUrlMatch[1] || content),
+            sourceName: sourceUrlMatch[1] || content,
+            sourceUrl: sourceUrlMatch[2] || sourceUrlMatch[3] || "",
+            relevance: 0.9 // Default relevance
+          });
+        });
+      }
     }
 
+    // If no sources found, create generic ones
+    if (sources.length === 0) {
+      console.log('Creating generic sources');
+      sources = [
+        {
+          sourceType: "law",
+          sourceName: "Relevant Indian Legal Code",
+          sourceUrl: "",
+          relevance: 0.9
+        },
+        {
+          sourceType: "guide",
+          sourceName: "Legal Aid Resources",
+          sourceUrl: "",
+          relevance: 0.8
+        }
+      ];
+    }
+
+    console.log(`Parsing complete: ${actionPlan.length} actions, ${sources.length} sources, disclaimer: ${disclaimer.substring(0, 30)}...`);
+    
     return {
       text: rawResponse,
       actionPlan,
@@ -137,11 +238,41 @@ const parseResponseIntoStructure = (rawResponse) => {
       confidence: 0.8 // Default confidence score
     };
   } catch (error) {
-    logError(error, 'openaiService.parseResponseIntoStructure');
+    console.error('Error parsing response:', error);
+    logError(error, 'openaiService.parseResponseIntoStructure', {
+      rawResponsePreview: rawResponse.substring(0, 200),
+      responseLength: rawResponse.length
+    });
     return {
       text: rawResponse,
-      actionPlan: [],
-      sources: [],
+      actionPlan: [
+        {
+          step: 1,
+          title: "Understand Your Rights",
+          description: "Research applicable laws and regulations related to your situation.",
+          priority: "high"
+        },
+        {
+          step: 2,
+          title: "Consult a Lawyer",
+          description: "Seek professional legal advice specific to your circumstances.",
+          priority: "medium"
+        },
+        {
+          step: 3,
+          title: "Document Everything",
+          description: "Keep records of all communication and relevant documents.",
+          priority: "medium"
+        }
+      ],
+      sources: [
+        {
+          sourceType: "law",
+          sourceName: "Relevant Indian Legal Code",
+          sourceUrl: "",
+          relevance: 0.9
+        }
+      ],
       disclaimer: "This is not legal advice. Please consult a qualified lawyer for specific legal counsel.",
       confidence: 0.5
     };

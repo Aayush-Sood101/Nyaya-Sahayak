@@ -31,6 +31,18 @@ const rateLimit = (limit, timeWindow) => {
     
     // Check if limit exceeded
     if (requestData.count > limit) {
+      // Log rate limit exceeded
+      const logError = require('../utils/logger/errorLogger');
+      const error = new Error('Rate limit exceeded');
+      logError(error, 'rateLimitMiddleware', {
+        ip,
+        userID: req.user?.id,
+        path: req.path,
+        method: req.method,
+        requestCount: requestData.count,
+        limit
+      });
+      
       return res.status(429).json({
         success: false,
         message: 'Too many requests, please try again later'

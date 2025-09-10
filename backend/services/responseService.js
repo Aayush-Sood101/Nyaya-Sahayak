@@ -6,35 +6,88 @@ const Query = require('../models/queryModel');
 // Generate structured response to legal query
 const generateResponse = async (queryText, userId, conversationId) => {
   try {
+    console.log('Starting generateResponse for query:', queryText);
+    
     // Analyze the query
     const queryAnalysis = await analyzeQuery(queryText);
+    console.log('Query analysis:', queryAnalysis);
     
     // Create and save the query
-    const newQuery = new Query({
+    const queryData = {
       conversationId,
-      userId,
       text: queryText,
       intent: queryAnalysis.intent,
       entities: queryAnalysis.entities,
       urgency: queryAnalysis.urgency,
       complexity: queryAnalysis.complexity
-    });
+    };
+    
+    // Add userId only if it's provided
+    if (userId) {
+      queryData.userId = userId;
+    }
+    
+    console.log('Creating new query with data:', queryData);
+    const newQuery = new Query(queryData);
     
     await newQuery.save();
+    console.log('Query saved with ID:', newQuery._id);
     
     // Build search filters based on query analysis
     const filters = buildSearchFilters(queryAnalysis);
+    console.log('Built search filters:', filters);
     
-    // Search for relevant legal documents
-    const relevantDocuments = await searchLegalDocuments(queryText, filters);
+    // Search for relevant legal documents (now with error handling)
+    let relevantDocuments = [];
+    try {
+      console.log('Searching for legal documents...');
+      relevantDocuments = await searchLegalDocuments(queryText, filters);
+      console.log('Found relevant documents:', relevantDocuments.length);
+    } catch (error) {
+      console.error('Error searching for legal documents:', error);
+      const logError = require('../utils/logger/errorLogger');
+      logError(error, 'responseService.searchLegalDocuments', { 
+        queryText, 
+        filters 
+      });
+      // Provide fallback empty documents
+      relevantDocuments = [];
+    }
     
-    // Generate advice using OpenAI
-    const rawAdvice = await generateLegalAdvice(queryText, relevantDocuments);
+    // Generate advice using OpenAI (with error handling)
+    let rawAdvice = '';
+    try {
+      console.log('Generating legal advice with OpenAI...');
+      rawAdvice = await generateLegalAdvice(queryText, relevantDocuments);
+      console.log('Received raw advice from OpenAI, length:', rawAdvice.length);
+    } catch (error) {
+      console.error('Error generating legal advice:', error);
+      const logError = require('../utils/logger/errorLogger');
+      logError(error, 'responseService.generateLegalAdvice', { 
+        queryTextPreview: queryText?.substring(0, 100), 
+        documentCount: relevantDocuments?.length 
+      });
+      // Provide a fallback response
+      rawAdvice = `I apologize, but I'm currently experiencing issues with my knowledge database. Here are some general suggestions:
+
+1. [Document Your Situation]: Write down all relevant facts and dates.
+2. [Consult a Lawyer]: For personalized legal advice, consider speaking with a qualified attorney.
+3. [Research Online]: Look for information on government websites or legal aid organizations.
+
+Disclaimer: This is a general response and not specific legal advice. Always consult with a qualified legal professional for advice on your specific situation.`;
+    }
     
     // Parse the response into structured format
+    console.log('Parsing response into structured format...');
     const structuredResponse = parseResponseIntoStructure(rawAdvice);
+    console.log('Structured response:', 
+      'text length:', structuredResponse.text?.length,
+      'action plan items:', structuredResponse.actionPlan?.length,
+      'sources:', structuredResponse.sources?.length
+    );
     
     // Save the response
+    console.log('Creating new response...');
     const newResponse = new Response({
       queryId: newQuery._id,
       text: structuredResponse.text,
@@ -45,17 +98,28 @@ const generateResponse = async (queryText, userId, conversationId) => {
     });
     
     await newResponse.save();
+    console.log('Response saved with ID:', newResponse._id);
     
     // Update the query with the response ID
     newQuery.responseId = newResponse._id;
     await newQuery.save();
+    console.log('Query updated with response ID');
     
-    return {
+    const result = {
       query: newQuery,
       response: newResponse
     };
+    
+    console.log('Returning complete result from generateResponse');
+    return result;
   } catch (error) {
     console.error('Error generating response:', error);
+    const logError = require('../utils/logger/errorLogger');
+    logError(error, 'responseService.generateResponse', { 
+      queryText: queryText?.substring(0, 100), 
+      conversationId, 
+      userId 
+    });
     throw new Error('Failed to generate response');
   }
 };
@@ -128,6 +192,12 @@ const validateResponse = (response) => {
     };
   } catch (error) {
     console.error('Error validating response:', error);
+    const logError = require('../utils/logger/errorLogger');
+    logError(error, 'responseService.validateResponse', {
+      responsePreview: response?.text?.substring(0, 100),
+      hasActionPlan: !!response?.actionPlan,
+      hasDisclaimer: !!response?.disclaimer
+    });
     return {
       valid: false,
       reason: 'Validation error'

@@ -34,20 +34,25 @@ const errorLogger = winston.createLogger({
 });
 
 // Export logger function
-const logError = (error, source = 'unknown') => {
+const logError = (error, source = 'unknown', additionalContext = {}) => {
   const errorObj = {
     message: error.message,
     stack: error.stack,
     source,
+    additionalContext,
     timestamp: new Date().toISOString()
   };
 
   // Log to error log file
   errorLogger.error(`Error in ${source}`, errorObj);
   
-  // Log to console in development
-  if (process.env.NODE_ENV !== 'production') {
-    console.error(`Error in ${source}:`, error);
+  // Always log to console for immediate visibility
+  console.error(`=== ERROR LOGGED ===`);
+  console.error(`Source: ${source}`);
+  console.error(`Message: ${error.message}`);
+  console.error(`Stack: ${error.stack?.split('\n')[0] || 'No stack trace'}`);
+  if (Object.keys(additionalContext).length > 0) {
+    console.error('Additional Context:', additionalContext);
   }
 };
 

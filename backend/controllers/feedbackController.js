@@ -60,6 +60,11 @@ const submitFeedback = async (req, res) => {
     });
   } catch (error) {
     console.error('Error submitting feedback:', error);
+    const logError = require('../utils/logger/errorLogger');
+    logError(error, 'feedbackController.submitFeedback', {
+      responseId: req.body.responseId,
+      rating: req.body.rating
+    });
     return res.status(500).json({
       success: false,
       message: 'Error submitting feedback',
@@ -102,6 +107,10 @@ const getResponseFeedback = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching feedback:', error);
+    const logError = require('../utils/logger/errorLogger');
+    logError(error, 'feedbackController.getResponseFeedback', {
+      responseId: req.params.responseId
+    });
     return res.status(500).json({
       success: false,
       message: 'Error fetching feedback',

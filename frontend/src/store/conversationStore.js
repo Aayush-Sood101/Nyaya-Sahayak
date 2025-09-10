@@ -112,13 +112,25 @@ const useConversationStore = create((set, get) => ({
           conversationId: conversationId
         };
         
+        console.log('Sending query to backend:', queryData);
         const response = await apiService.legal.query(queryData.query, queryData.conversationId);
+        console.log('Received response from backend:', JSON.stringify(response.data, null, 2));
+        
+        if (!response.data || !response.data.data) {
+          console.error('Invalid response structure:', response);
+          throw new Error('Invalid response from server');
+        }
+        
+        // The backend returns { query: {...}, response: {...} }
+        const responseData = response.data.data;
         
         // Update the message with the response
         const messageWithResponse = {
           query: userMessage.query,
-          response: response.data.data
+          response: responseData.response
         };
+        
+        console.log('Created message with response:', JSON.stringify(messageWithResponse, null, 2));
         
         // Replace the loading message with the complete one
         set((state) => ({

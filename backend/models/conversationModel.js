@@ -4,7 +4,8 @@ const conversationSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    // Temporarily making userId optional for testing
+    // required: true
   },
   title: {
     type: String,

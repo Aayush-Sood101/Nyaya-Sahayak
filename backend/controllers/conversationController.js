@@ -5,9 +5,10 @@ const Response = require('../models/responseModel');
 // Get all conversations for a user
 const getUserConversations = async (req, res) => {
   try {
-    const userId = req.user.id; // Assuming user info is added by auth middleware
+    // For now, get all conversations without user filtering
+    // const userId = req.user.id; // Commented out for testing
     
-    const conversations = await Conversation.find({ userId })
+    const conversations = await Conversation.find({})
       .sort({ updatedAt: -1 })
       .select('title status createdAt updatedAt');
     
@@ -17,6 +18,8 @@ const getUserConversations = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching conversations:', error);
+    const logError = require('../utils/logger/errorLogger');
+    logError(error, 'conversationController.getUserConversations', {});
     return res.status(500).json({
       success: false,
       message: 'Error fetching conversations',
@@ -82,6 +85,10 @@ const getConversation = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching conversation:', error);
+    const logError = require('../utils/logger/errorLogger');
+    logError(error, 'conversationController.getConversation', {
+      conversationId: req.params.id
+    });
     return res.status(500).json({
       success: false,
       message: 'Error fetching conversation',
@@ -94,10 +101,10 @@ const getConversation = async (req, res) => {
 const createConversation = async (req, res) => {
   try {
     const { title } = req.body;
-    const userId = req.user.id; // Assuming user info is added by auth middleware
+    // const userId = req.user.id; // Commented out for testing
     
     const newConversation = new Conversation({
-      userId,
+      // userId, // Commented out for testing
       title: title || 'New Conversation',
     });
     
@@ -109,6 +116,10 @@ const createConversation = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating conversation:', error);
+    const logError = require('../utils/logger/errorLogger');
+    logError(error, 'conversationController.createConversation', {
+      title: req.body.title
+    });
     return res.status(500).json({
       success: false,
       message: 'Error creating conversation',
@@ -146,6 +157,12 @@ const updateConversation = async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating conversation:', error);
+    const logError = require('../utils/logger/errorLogger');
+    logError(error, 'conversationController.updateConversation', {
+      conversationId: req.params.id,
+      title: req.body.title,
+      status: req.body.status
+    });
     return res.status(500).json({
       success: false,
       message: 'Error updating conversation',
@@ -188,6 +205,10 @@ const deleteConversation = async (req, res) => {
     });
   } catch (error) {
     console.error('Error deleting conversation:', error);
+    const logError = require('../utils/logger/errorLogger');
+    logError(error, 'conversationController.deleteConversation', {
+      conversationId: req.params.id
+    });
     return res.status(500).json({
       success: false,
       message: 'Error deleting conversation',

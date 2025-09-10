@@ -36,15 +36,21 @@ const logPrompt = (query, context, userId = null, conversationId = null) => {
     query,
     context: Array.isArray(context) 
       ? context.map(doc => ({
-          source_type: doc.metadata?.source_type,
-          source_name: doc.metadata?.source_name,
-          text_snippet: doc.text?.substring(0, 100) + '...' // Truncate for log size
+          source_type: doc.metadata?.source_type || doc.metadata?.sourceType || 'unknown',
+          source_name: doc.metadata?.source_name || doc.metadata?.source || 'unknown',
+          text: doc.text || 'No text provided' // Log the complete text
         }))
       : context
   };
 
   // Log to prompt log file
   promptLogger.info('Prompt sent to OpenAI', promptData);
+  
+  // Also log to console for immediate visibility
+  console.log('=== PROMPT LOGGED ===');
+  console.log(`Query: ${query}`);
+  console.log(`ConversationID: ${conversationId}`);
+  console.log(`Context Sources: ${Array.isArray(context) ? context.length : 'N/A'}`);
 };
 
 module.exports = logPrompt;

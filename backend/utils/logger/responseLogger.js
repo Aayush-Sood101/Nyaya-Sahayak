@@ -34,14 +34,23 @@ const logResponse = (rawResponse, parsedResponse, userId = null, conversationId 
     userId,
     conversationId,
     queryId,
-    rawResponse: rawResponse.substring(0, 500) + (rawResponse.length > 500 ? '...' : ''), // Truncate for log size
-    actionPlanCount: parsedResponse.actionPlan ? parsedResponse.actionPlan.length : 0,
-    sourcesCount: parsedResponse.sources ? parsedResponse.sources.length : 0,
-    confidence: parsedResponse.confidence
+    rawResponse: rawResponse, // Log the complete response
+    actionPlan: parsedResponse.actionPlan || [],
+    sources: parsedResponse.sources || [],
+    disclaimer: parsedResponse.disclaimer || '',
+    confidence: parsedResponse.confidence || 0
   };
 
   // Log to response log file
   responseLogger.info('Response received from OpenAI', responseData);
+  
+  // Also log to console for immediate visibility
+  console.log('=== RESPONSE LOGGED ===');
+  console.log(`ConversationID: ${conversationId}`);
+  console.log(`Response Length: ${rawResponse.length} characters`);
+  console.log(`Action Plan Items: ${parsedResponse.actionPlan?.length || 0}`);
+  console.log(`Sources: ${parsedResponse.sources?.length || 0}`);
+  console.log(`Response: ${rawResponse.substring(0, 200)}...`);
 };
 
 module.exports = logResponse;

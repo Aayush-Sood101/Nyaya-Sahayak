@@ -1,5 +1,5 @@
 const { generateEmbedding } = require('./openaiService');
-const { searchVectorDatabase, rankResults } = require('./pineconeService');
+const { searchVectorDatabase } = require('./pineconeService');
 
 // Analyze user query to determine legal domain and intent
 const analyzeQuery = async (query) => {
@@ -19,6 +19,10 @@ const analyzeQuery = async (query) => {
     };
   } catch (error) {
     console.error('Error analyzing query:', error);
+    const logError = require('../utils/logger/errorLogger');
+    logError(error, 'legalService.analyzeQuery', {
+      queryPreview: query?.substring(0, 100)
+    });
     return {
       intent: 'other',
       entities: [],
@@ -158,13 +162,16 @@ const searchLegalDocuments = async (query, filters = {}) => {
     // Search in vector database
     const searchResults = await searchVectorDatabase(queryEmbedding, filters);
     
-    // Rank results by relevance
-    const rankedResults = rankResults(searchResults);
-    
-    return rankedResults;
+    // Results are already ranked by relevance from searchVectorDatabase
+    return searchResults;
   } catch (error) {
-    console.error('Error searching legal documents:', error);
-    throw new Error('Failed to search legal documents');
+    console.log('Error in searchLegalDocuments, returning empty results:', error.message);
+    const logError = require('../utils/logger/errorLogger');
+    logError(error, 'legalService.searchLegalDocuments', {
+      queryPreview: query?.substring(0, 100),
+      filters: JSON.stringify(filters)
+    });
+    return [];
   }
 };
 

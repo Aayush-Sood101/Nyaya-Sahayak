@@ -19,7 +19,14 @@ app.use(express.urlencoded({ extended: true }));
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
+  .catch(err => {
+    console.error('MongoDB connection error:', err);
+    // Use our custom error logger
+    const logError = require('./utils/logger/errorLogger');
+    logError(err, 'server.mongodbConnection', {
+      uri: process.env.MONGODB_URI?.replace(/mongodb\+srv:\/\/[^:]+:[^@]+@/, 'mongodb+srv://****:****@')
+    });
+  });
 
 // Import routes
 const legalRoutes = require('./routes/legalRoutes');
@@ -33,7 +40,18 @@ app.use('/api/feedback', feedbackRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Server error:', err);
+  
+  // Use our custom error logger
+  const logError = require('./utils/logger/errorLogger');
+  logError(err, 'server.errorMiddleware', {
+    path: req.path,
+    method: req.method,
+    body: JSON.stringify(req.body).substring(0, 200),
+    query: JSON.stringify(req.query)
+  });
+  
+  // Send appropriate response
   res.status(500).json({
     success: false,
     message: 'Internal Server Error',
