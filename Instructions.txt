@@ -1,0 +1,259 @@
+# Legal Advice System Implementation Guide
+
+## Project Overview
+
+You are tasked with building a complete legal advice agentic system that helps users in India get actionable legal guidance. The system consists of a Next.js frontend, Node.js Express backend, MongoDB database, and Pinecone vector database integration.
+
+## System Architecture
+
+### Tech Stack
+- **Frontend**: Next.js with React and Tailwind CSS
+- **Backend**: Node.js with Express.js
+- **Database**: MongoDB for user data, sessions, and metadata
+- **Vector Database**: Pinecone for legal document embeddings
+- **AI Integration**: OpenAI API (Text Embedding 3 Small for embeddings, GPT for responses)
+
+### Core Functionality
+The system processes user legal queries, searches through a vector database of Indian legal documents, and generates structured advice with numbered action plans like:
+
+```
+1. Do Not Vacate: You are not legally obligated to leave immediately.
+2. Communicate in Writing: Send your landlord a formal message stating your rights.
+3. Gather Evidence: Keep copies of rent receipts and communications.
+4. Draft a Legal Notice: Prepare formal notice to send to landlord.
+5. Contact Rent Control: File complaint with Delhi Rent Controller if needed.
+```
+
+## Data Schema
+
+### JSON Metadata Schema for Legal Documents
+All legal document chunks stored in Pinecone follow this exact structure:
+
+```json
+{
+  "text": "The actual text content of the chunk (500-1000 characters)",
+  
+  // Universal Fields (for every chunk)
+  "source_type": "law | scheme | faq | guide | constitution",
+  "source_name": "Full document name (e.g., 'Indian Penal Code, 1860')",
+  "source_url": "Direct URL to source document",
+  "language": "en | hi | ta",
+  "last_updated": "2025-09-10T12:00:00Z",
+
+  // Fields for Laws, Acts, Codes & Constitution
+  "document_type": "Code | Act | Constitution | Rule",
+  "chapter_number": "IV",
+  "chapter_title": "General Exceptions",
+  "section_number": "302",
+  "article_number": null, // Use specifically for Constitution
+  "clause_number": "1a",
+
+  // Fields for Government Schemes
+  "ministry": "Ministry of Health and Family Welfare",
+  "beneficiary_type": ["Below Poverty Line", "Women", "Children"],
+  "benefit_type": "Healthcare | Subsidy | Housing | Pension",
+
+  // Fields for FAQs and Web Guides
+  "page_title": "How to File a First Information Report (FIR)",
+  "question": "What should I do if the police refuse to register my FIR?"
+}
+```
+
+### MongoDB Schema Design
+Create the following collections:
+
+1. **users**: User profiles and preferences
+2. **conversations**: Chat sessions and history
+3. **queries**: Individual user questions with metadata
+4. **responses**: Generated legal advice with feedback
+5. **feedback**: User ratings and improvement data
+
+## Backend Implementation
+
+### 1. Project Setup
+- Initialize Node.js project with Express
+- Install dependencies: express, mongoose, cors, dotenv, openai, @pinecone-database/pinecone
+- Set up environment variables for API keys and database URLs
+- Create folder structure: routes/, controllers/, services/, models/, middleware/, utils/
+
+### 2. Database Configuration
+- Set up MongoDB connection with Mongoose
+- Create models for all collections with proper schemas
+- Implement connection pooling and error handling
+- Set up database indexes for performance
+
+### 3. Pinecone Integration Service
+Create `services/pineconeService.js`:
+- Initialize Pinecone client with API key
+- Implement query embedding generation using OpenAI Text Embedding 3 Small
+- Build semantic search function with metadata filtering
+- Create result ranking and relevance scoring
+- Handle embedding errors and fallbacks
+
+### 4. OpenAI Integration Service
+Create `services/openaiService.js`:
+- Set up OpenAI client for embeddings and completions
+- Implement embedding generation for user queries
+- Create legal advice generation with structured prompts
+- Build response formatting for action plans
+- Handle API rate limits and errors
+
+### 5. Legal Query Processing Service
+Create `services/legalService.js`:
+- Analyze user queries for legal intent and categories
+- Extract entities (dates, amounts, locations, legal concepts)
+- Determine query urgency and complexity
+- Route to appropriate legal domain handlers
+
+### 6. Response Generation Engine
+Create `services/responseService.js`:
+- Combine retrieved legal documents into coherent context
+- Generate structured legal advice using GPT
+- Format responses with numbered action plans
+- Add legal disclaimers and source citations
+- Validate response quality and safety
+
+### 7. API Routes
+Create the following endpoints:
+
+```javascript
+// Main legal query endpoint
+POST /api/legal/query
+- Accept user question and context
+- Process through legal service pipeline
+- Return structured advice with action plan
+
+// Search legal documents
+GET /api/legal/search
+- Direct search in vector database
+- Return relevant legal document chunks
+
+// Conversation management
+GET /api/conversations/:userId
+POST /api/conversations
+PUT /api/conversations/:id
+
+// Feedback collection
+POST /api/feedback
+- Collect user ratings on response quality
+```
+
+### 8. Middleware Implementation
+- Authentication middleware for user sessions
+- Rate limiting to prevent API abuse
+- Request validation and sanitization
+- Error handling and logging
+- CORS configuration for frontend integration
+
+## Frontend Implementation
+
+### 1. Next.js Setup
+- Initialize Next.js project with TypeScript
+- Install dependencies: tailwindcss, lucide-react, axios, zustand
+- Set up Tailwind CSS configuration
+- Create app router structure with proper layouts
+
+### 2. State Management
+Create global state with Zustand:
+- User authentication state
+- Current conversation state
+- Chat history management
+- Loading and error states
+- Settings and preferences
+
+### 3. Core Components
+
+#### Chat Interface (`components/ChatInterface.jsx`)
+- Message display with user/AI differentiation
+- Real-time typing indicators
+- Message timestamps and status
+- Scroll management for long conversations
+
+#### Query Input (`components/QueryInput.jsx`)
+- Text area with validation
+- Character count and limits
+- Submit button with loading states
+- Voice input support (optional)
+
+#### Response Display (`components/ResponseDisplay.jsx`)
+- Structured legal advice formatting
+- Numbered action plan rendering
+- Source citation links
+- Copy/share functionality
+
+#### Action Plan (`components/ActionPlan.jsx`)
+- Expandable numbered steps
+- Progress tracking checkboxes
+- Priority indicators
+- Deadline reminders
+
+### 4. Page Structure
+
+#### Main Chat Page (`pages/index.js`)
+- Full-screen chat interface
+- Sidebar for conversation history
+- Settings and profile access
+- Mobile-responsive design
+
+#### History Page (`pages/history.js`)
+- Previous conversation list
+- Search through chat history
+- Export conversation functionality
+
+#### Settings Page (`pages/settings.js`)
+- User preferences
+- Language selection
+- Privacy settings
+- Feedback mechanisms
+
+### 5. API Integration Layer
+Create `lib/api.js`:
+- Axios client configuration
+- Request/response interceptors
+- Error handling and retries
+- Loading state management
+- Offline detection and caching
+
+### 6. Styling and UI
+- Implement consistent design system with Tailwind
+- Create responsive layouts for mobile/desktop
+- Add smooth animations and transitions
+- Implement dark/light mode toggle
+- Ensure accessibility compliance
+
+## Core System Features
+
+### 1. Query Processing Pipeline
+1. **Input Validation**: Check query length, language, content safety
+2. **Intent Analysis**: Categorize legal domain (criminal, civil, constitutional, etc.)
+3. **Entity Extraction**: Identify key legal concepts, dates, amounts
+4. **Context Building**: Gather relevant background information
+5. **Vector Search**: Find similar legal documents in Pinecone
+6. **Response Generation**: Create structured advice with action plan
+
+### 2. Legal Advice Generation
+- Use retrieved legal documents as context
+- Generate advice following consistent format
+- Include specific citations to laws and sections
+- Provide practical, actionable steps
+- Add appropriate legal disclaimers
+
+### 3. Quality Assurance
+- Validate generated advice against source documents
+- Check for consistency and accuracy
+- Implement confidence scoring
+- Collect user feedback for improvements
+- Monitor system performance metrics
+
+
+
+## Getting Started
+
+1. Set up development environment with Node.js, MongoDB, and API keys
+2. Initialize both frontend and backend projects
+3. Implement core database schemas and API endpoints
+4. Build basic chat interface and query processing
+5. Integrate AI services and test with sample legal queries
+6. Gradually add advanced features and polish the user experience
+
+This system will provide users with accessible, accurate legal guidance while maintaining appropriate boundaries and encouraging professional consultation when necessary.
