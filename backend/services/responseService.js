@@ -70,16 +70,44 @@ const generateResponse = async (queryText, userId, conversationId) => {
       // Provide a fallback response
       rawAdvice = `I apologize, but I'm currently experiencing issues with my knowledge database. Here are some general suggestions:
 
-1. [Document Your Situation]: Write down all relevant facts and dates.
-2. [Consult a Lawyer]: For personalized legal advice, consider speaking with a qualified attorney.
-3. [Research Online]: Look for information on government websites or legal aid organizations.
+I'm unable to provide specific legal advice at the moment. Please consider the following general actions:
+
+1. Document your situation in detail including all relevant dates and facts.
+2. Research applicable laws through government websites or legal information portals.
+3. Consult with a qualified legal professional for specific advice on your situation.
 
 Disclaimer: This is a general response and not specific legal advice. Always consult with a qualified legal professional for advice on your specific situation.`;
     }
     
     // Parse the response into structured format
     console.log('Parsing response into structured format...');
-    const structuredResponse = parseResponseIntoStructure(rawAdvice);
+    const structuredResponse = await parseResponseIntoStructure(rawAdvice, queryText);
+    
+    // Ensure action plan is never empty
+    if (!structuredResponse.actionPlan || structuredResponse.actionPlan.length === 0) {
+      console.log('Warning: Action plan is empty, using default plan');
+      structuredResponse.actionPlan = [
+        {
+          step: 1,
+          title: "Understand Your Rights",
+          description: "Research applicable laws and regulations related to your situation.",
+          priority: "high"
+        },
+        {
+          step: 2,
+          title: "Consult a Lawyer",
+          description: "Seek professional legal advice specific to your circumstances.",
+          priority: "medium"
+        },
+        {
+          step: 3,
+          title: "Document Everything",
+          description: "Keep records of all communication and relevant documents.",
+          priority: "low"
+        }
+      ];
+    }
+    
     console.log('Structured response:', 
       'text length:', structuredResponse.text?.length,
       'action plan items:', structuredResponse.actionPlan?.length,
