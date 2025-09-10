@@ -1,5 +1,8 @@
 const { OpenAI } = require('openai');
 const dotenv = require('dotenv');
+const logPrompt = require('../utils/logger/promptLogger');
+const logResponse = require('../utils/logger/responseLogger');
+const logError = require('../utils/logger/errorLogger');
 
 dotenv.config();
 
@@ -17,13 +20,13 @@ const generateEmbedding = async (text) => {
     });
     return response.data[0].embedding;
   } catch (error) {
-    console.error('Error generating embedding:', error);
+    logError(error, 'openaiService.generateEmbedding');
     throw new Error('Failed to generate embedding');
   }
 };
 
 // Generate legal advice response
-const generateLegalAdvice = async (query, documents) => {
+const generateLegalAdvice = async (query, documents, userId = null, conversationId = null) => {
   try {
     // Prepare context from documents
     const context = documents.map(doc => {
@@ -61,8 +64,11 @@ IMPORTANT GUIDELINES:
 - Do not provide advice that could be legally problematic
 `;
 
+    // Log the prompt
+    logPrompt(query, documents, userId, conversationId);
+
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-3.5-turbo",
       messages: [
         { role: "system", content: "You are a legal assistant providing structured advice based on Indian law." },
         { role: "user", content: prompt }
@@ -71,9 +77,17 @@ IMPORTANT GUIDELINES:
       max_tokens: 1000,
     });
 
-    return response.choices[0].message.content;
+    const responseContent = response.choices[0].message.content;
+    
+    // Parse the response
+    const parsedResponse = parseResponseIntoStructure(responseContent);
+    
+    // Log the response
+    logResponse(responseContent, parsedResponse, userId, conversationId);
+
+    return responseContent;
   } catch (error) {
-    console.error('Error generating legal advice:', error);
+    logError(error, 'openaiService.generateLegalAdvice');
     throw new Error('Failed to generate legal advice');
   }
 };
@@ -123,7 +137,7 @@ const parseResponseIntoStructure = (rawResponse) => {
       confidence: 0.8 // Default confidence score
     };
   } catch (error) {
-    console.error('Error parsing response:', error);
+    logError(error, 'openaiService.parseResponseIntoStructure');
     return {
       text: rawResponse,
       actionPlan: [],
