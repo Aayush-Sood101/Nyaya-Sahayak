@@ -1,127 +1,77 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import Image from "next/image";
 import { useRouter } from 'next/navigation';
 import ChatInterface from '@/components/ChatInterface';
 import Sidebar from '@/components/Sidebar';
+import useUserStore from '@/store/userStore';
+import useConversationStore from '@/store/conversationStore';
+import useUIStore from '@/store/uiStore';
 
 export default function Home() {
   const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [conversations, setConversations] = useState([]);
-  const [currentConversation, setCurrentConversation] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const { isAuthenticated, checkAuth } = useUserStore();
+  const { 
+    conversations, 
+    currentConversation, 
+    messages, 
+    isLoading, 
+    error,
+    fetchConversations, 
+    createConversation,
+    getConversationById,
+    sendMessage,
+    setCurrentConversation
+  } = useConversationStore();
   
-  // In a real app, these would use the store hooks
-  const handleNewChat = () => {
-    // Demo function - would create a new conversation
-    const newConversation = {
-      id: Date.now().toString(),
-      title: 'New Legal Query',
-      updatedAt: new Date().toISOString()
+  const { isSidebarOpen, toggleSidebar } = useUIStore();
+  
+  // Check authentication and fetch conversations on component mount
+  useEffect(() => {
+    const initializeApp = async () => {
+      const isAuthed = await checkAuth();
+      
+      if (isAuthed) {
+        try {
+          await fetchConversations();
+        } catch (error) {
+          console.error('Failed to fetch conversations:', error);
+        }
+      } else {
+        // If using authentication, uncomment this to redirect to login
+        // router.push('/login');
+      }
     };
-    setConversations([...conversations, newConversation]);
-    setCurrentConversation(newConversation);
-    setMessages([]);
-  };
+    
+    initializeApp();
+  }, []);
   
-  const handleSelectChat = (id) => {
-    // Demo function - would fetch a conversation
-    const selected = conversations.find(conv => conv.id === id);
-    if (selected) {
-      setCurrentConversation(selected);
-      // In a real app, would fetch messages for this conversation
-      setMessages([]);
+  // Handle creating a new conversation
+  const handleNewChat = async () => {
+    try {
+      await createConversation('New Legal Query');
+    } catch (error) {
+      console.error('Failed to create conversation:', error);
     }
   };
   
-  const handleSendMessage = (message) => {
-    // Demo function to simulate sending a message
-    setIsLoading(true);
-    
-    // Add user message
-    const userMessage = {
-      query: {
-        text: message,
-        createdAt: new Date().toISOString()
-      },
-      response: null
-    };
-    
-    setMessages([...messages, userMessage]);
-    
-    // Simulate API response after 1.5 seconds
-    setTimeout(() => {
-      const aiResponse = {
-        query: {
-          text: message,
-          createdAt: new Date().toISOString()
-        },
-        response: {
-          text: "Based on the information provided, here's my legal guidance:\n\nYour situation falls under the Tenancy Laws of India, specifically the Rent Control Act applicable in your state.\n\nPlease note that landlords cannot evict tenants without following proper legal procedures and having valid grounds as specified by law.",
-          actionPlan: [
-            {
-              step: 1,
-              title: "Do Not Vacate",
-              description: "You are not legally obligated to leave immediately.",
-              priority: "high"
-            },
-            {
-              step: 2,
-              title: "Communicate in Writing",
-              description: "Send your landlord a formal message stating your rights.",
-              priority: "medium"
-            },
-            {
-              step: 3,
-              title: "Gather Evidence",
-              description: "Keep copies of rent receipts and communications.",
-              priority: "medium"
-            }
-          ],
-          sources: [
-            {
-              sourceType: "law",
-              sourceName: "Delhi Rent Control Act, 1958",
-              sourceUrl: "https://example.com/rent-act",
-              relevance: 0.95
-            }
-          ],
-          disclaimer: "This is not legal advice. Please consult a qualified lawyer for specific legal counsel.",
-          createdAt: new Date().toISOString()
-        }
-      };
-      
-      // Replace the loading message with the response
-      setMessages(prev => [
-        ...prev.slice(0, prev.length - 1),
-        aiResponse
-      ]);
-      
-      setIsLoading(false);
-    }, 1500);
+  // Handle selecting an existing conversation
+  const handleSelectChat = async (id) => {
+    try {
+      await getConversationById(id);
+    } catch (error) {
+      console.error('Failed to fetch conversation:', error);
+    }
   };
   
-  // Initialize with some demo data
-  useEffect(() => {
-    // In a real app, would check authentication and fetch conversations
-    setIsAuthenticated(true);
-    setConversations([
-      {
-        id: '1',
-        title: 'Tenant Eviction Question',
-        updatedAt: '2025-09-08T10:30:00Z'
-      },
-      {
-        id: '2',
-        title: 'Property Dispute Help',
-        updatedAt: '2025-09-07T15:20:00Z'
-      }
-    ]);
-  }, []);
+  // Handle sending a message
+  const handleSendMessage = async (message) => {
+    try {
+      await sendMessage(message);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -131,7 +81,7 @@ export default function Home() {
           conversations={conversations}
           onNewChat={handleNewChat}
           onSelectChat={handleSelectChat}
-          activeChatId={currentConversation?.id}
+          activeChatId={currentConversation?.id || currentConversation?._id}
         />
       )}
       
@@ -140,7 +90,7 @@ export default function Home() {
         {/* Header */}
         <header className="h-16 bg-white border-b border-gray-200 flex items-center px-4 justify-between">
           <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            onClick={toggleSidebar}
             className="p-2 text-gray-600 hover:text-gray-900"
           >
             <svg
@@ -198,6 +148,13 @@ export default function Home() {
             isLoading={isLoading}
           />
         </div>
+        
+        {/* Error Display */}
+        {error && (
+          <div className="p-2 bg-red-100 text-red-800 text-sm">
+            Error: {error}
+          </div>
+        )}
       </div>
     </div>
   );

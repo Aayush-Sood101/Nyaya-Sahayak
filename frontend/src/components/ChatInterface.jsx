@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import { format } from 'date-fns';
 
 export default function ChatInterface({ messages, onSendMessage, isLoading }) {
   const [message, setMessage] = useState('');
@@ -20,6 +21,14 @@ export default function ChatInterface({ messages, onSendMessage, isLoading }) {
     if (message.trim() && !isLoading) {
       onSendMessage(message);
       setMessage('');
+    }
+  };
+  
+  const formatTime = (dateString) => {
+    try {
+      return format(new Date(dateString), 'h:mm a');
+    } catch (error) {
+      return '';
     }
   };
   
@@ -46,7 +55,7 @@ export default function ChatInterface({ messages, onSendMessage, isLoading }) {
                 <div className="ml-3 bg-blue-50 p-3 rounded-lg max-w-[80%]">
                   <p className="text-gray-800">{msg.query.text}</p>
                   <p className="text-xs text-gray-500 mt-1">
-                    {new Date(msg.query.createdAt).toLocaleTimeString()}
+                    {formatTime(msg.query.createdAt)}
                   </p>
                 </div>
               </div>
@@ -113,7 +122,7 @@ export default function ChatInterface({ messages, onSendMessage, isLoading }) {
                     )}
                     
                     <p className="text-xs text-gray-500 mt-2">
-                      {new Date(msg.response.createdAt).toLocaleTimeString()}
+                      {formatTime(msg.response.createdAt)}
                     </p>
                   </div>
                 </div>

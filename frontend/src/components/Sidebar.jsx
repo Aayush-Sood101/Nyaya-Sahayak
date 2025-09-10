@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { format } from 'date-fns';
 
 export default function Sidebar({ conversations, onNewChat, onSelectChat, activeChatId }) {
   const pathname = usePathname();
@@ -10,8 +11,16 @@ export default function Sidebar({ conversations, onNewChat, onSelectChat, active
   
   // Filter conversations based on search term
   const filteredConversations = conversations.filter(conv => 
-    conv.title.toLowerCase().includes(searchTerm.toLowerCase())
+    conv.title?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  
+  const formatDate = (dateString) => {
+    try {
+      return format(new Date(dateString), 'MMM d, yyyy');
+    } catch (error) {
+      return '';
+    }
+  };
   
   return (
     <div className="w-64 bg-gray-50 border-r border-gray-200 h-screen flex flex-col">
@@ -74,21 +83,21 @@ export default function Sidebar({ conversations, onNewChat, onSelectChat, active
       
       {/* Conversation List */}
       <div className="flex-1 overflow-y-auto">
-        {filteredConversations.length > 0 ? (
+        {filteredConversations && filteredConversations.length > 0 ? (
           <div className="p-2">
             {filteredConversations.map((conversation) => (
               <div
-                key={conversation.id}
+                key={conversation._id || conversation.id}
                 className={`p-2 rounded-md cursor-pointer mb-1 ${
-                  activeChatId === conversation.id
+                  activeChatId === (conversation._id || conversation.id)
                     ? 'bg-blue-100 text-blue-800'
                     : 'hover:bg-gray-200'
                 }`}
-                onClick={() => onSelectChat(conversation.id)}
+                onClick={() => onSelectChat(conversation._id || conversation.id)}
               >
                 <div className="truncate font-medium">{conversation.title}</div>
                 <div className="text-xs text-gray-500">
-                  {new Date(conversation.updatedAt).toLocaleDateString()}
+                  {formatDate(conversation.updatedAt || conversation.createdAt)}
                 </div>
               </div>
             ))}
